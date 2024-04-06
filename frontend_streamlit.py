@@ -88,6 +88,7 @@ def plot_backtest(df_res):
     st.plotly_chart(fig)
 
 
+
 def main():
     st.title("Algo Trading Interface v0.1")
 
