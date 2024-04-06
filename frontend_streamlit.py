@@ -20,15 +20,16 @@ def extract_timeseries(response_dict):
 
 def extract_backtest_results(response_dict):
     # stock_data = pd.read_json(response_dict['df_op'])
-    order_plot_path = response_dict['output_dir'] + '/df_order_plot.csv'
-    df_op = pd.read_csv(order_plot_path)
-    df_op.set_index('Time', inplace=True)
-    timeseries_path = response_dict['output_dir'] + '/df_timeseries.csv'
-    df_ts = pd.read_csv(timeseries_path)
-    df_ts.set_index('Time', inplace=True)
-    df_res = df_ts.merge(df_op, left_index=True, right_index=True)
-    df_res = pd.concat([df_ts,df_op], axis=1)
-    df_res.drop(columns=['OrderID', 'Status', 'Quantity', 'OrderFee', 'FillPrice'], inplace=True)
+    # order_plot_path = response_dict['output_dir'] + '/df_order_plot.csv'
+    # df_op = pd.read_csv(order_plot_path)
+    # df_op.set_index('Time', inplace=True)
+    # timeseries_path = response_dict['output_dir'] + '/df_timeseries.csv'
+    # df_ts = pd.read_csv(timeseries_path)
+    # df_ts.set_index('Time', inplace=True)
+    # df_res = df_ts.merge(df_op, left_index=True, right_index=True)
+    # df_res = pd.concat([df_ts,df_op], axis=1)
+    # df_res.drop(columns=['OrderID', 'Status', 'Quantity', 'OrderFee', 'FillPrice'], inplace=True)
+    df_res = pd.read_json(io.StringIO(response_dict['df_order_plot']))
     return df_res
 
 
@@ -80,7 +81,7 @@ def plot_backtest(df_res):
                              mode='markers', marker=dict(symbol='triangle-up', color='green', size=18),
                              name='Buy'))
 
-    ticker = df_res["ticker"].iloc[0]
+    ticker = df_res["trade_symbol"].iloc[0]
     # enable the events trace to show collective information and display line on hover
     # https://stackoverflow.com/questions/73082731/plotly-adding-custom-markers-and-events-to-xaxis-points
     fig.update_layout(hovermode="x unified", title=f"{ticker} Backtest Results")
@@ -149,7 +150,7 @@ def main():
                 'backtest': ib_backtest
             }
             df_res = request_data(ib_ticker, params)
-            df_res['ticker'] = ib_ticker
+            df_res['trade_symbol'] = ib_ticker
             # Display the data
             plot_backtest(df_res)
 
