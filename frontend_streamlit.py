@@ -8,7 +8,7 @@ import requests
 import io
 
 backend_url = 'http://vm4lean.northeurope.cloudapp.azure.com:8080' # 'http://127.0.0.1:8000'
-# streamlit run front_end/frontend_streamlit.py
+# streamlit run frontend_streamlit.py
 
 
 def extract_timeseries(response_dict):
@@ -30,6 +30,9 @@ def extract_backtest_results(response_dict):
     # df_res = pd.concat([df_ts,df_op], axis=1)
     # df_res.drop(columns=['OrderID', 'Status', 'Quantity', 'OrderFee', 'FillPrice'], inplace=True)
     df_res = pd.read_json(io.StringIO(response_dict['df_order_plot']))
+    # print(df_res.head())
+    # print(df_res.columns)
+    df_res.set_index('Time', inplace=True)
     return df_res
 
 
@@ -113,14 +116,14 @@ def main():
         ib_ticker = st.selectbox("Select Stock Ticker", df_symbol['symbol'])
     with col2:
         ib_start_dt = st.date_input("Start Date",
-                                    datetime.strptime("2018-01-01", date_format),
+                                    datetime.strptime("2020-01-01", date_format),
                                     min_value=datetime.strptime("1998-01-02", date_format),
-                                    max_value=datetime.strptime("2021-03-31", date_format))
+                                    max_value=datetime.strptime("2023-12-31", date_format))
     with col3:
         ib_end_dt = st.date_input("End Date",
-                                  datetime.strptime("2021-01-31", date_format),
+                                  datetime.strptime("2023-12-31", date_format),
                                   min_value=datetime.strptime("1998-01-02", date_format),
-                                  max_value=datetime.strptime("2021-03-31", date_format))
+                                  max_value=datetime.strptime("2023-12-31", date_format))
     with col4:
         ib_backtest = st.selectbox("Select Backtest", df_backtests['backtest'])
 
