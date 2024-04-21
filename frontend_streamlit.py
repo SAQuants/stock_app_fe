@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import requests
 import io
+from plotly.subplots import make_subplots
 
 backend_url = 'http://vm4lean.northeurope.cloudapp.azure.com:8080' # 'http://127.0.0.1:8000'
 # streamlit run frontend_streamlit.py
@@ -19,21 +20,15 @@ def extract_timeseries(response_dict):
 
 
 def extract_backtest_results(response_dict):
-    # stock_data = pd.read_json(response_dict['df_op'])
-    # order_plot_path = response_dict['output_dir'] + '/df_order_plot.csv'
-    # df_op = pd.read_csv(order_plot_path)
-    # df_op.set_index('Time', inplace=True)
-    # timeseries_path = response_dict['output_dir'] + '/df_timeseries.csv'
-    # df_ts = pd.read_csv(timeseries_path)
-    # df_ts.set_index('Time', inplace=True)
-    # df_res = df_ts.merge(df_op, left_index=True, right_index=True)
-    # df_res = pd.concat([df_ts,df_op], axis=1)
-    # df_res.drop(columns=['OrderID', 'Status', 'Quantity', 'OrderFee', 'FillPrice'], inplace=True)
-    df_res = pd.read_json(io.StringIO(response_dict['df_order_plot']))
-    # print(df_res.head())
-    # print(df_res.columns)
-    df_res.set_index('Time', inplace=True)
-    return df_res
+    df_order_plot = pd.read_json(io.StringIO(response_dict['df_order_plot']))
+    # print(df_order_plot.columns)
+    df_order_plot.set_index('Time', inplace=True)
+
+    df_analytics = pd.read_json(io.StringIO(response_dict['df_analytics']))
+    # print(df_analytics.columns)
+    df_analytics.set_index('Time', inplace=True)
+
+    return df_order_plot, df_analytics
 
 
 def request_data(symbol, params):
@@ -48,10 +43,11 @@ def request_data(symbol, params):
     response_dict = res.json()
     if 'backtest' not in params:
         df_res = extract_timeseries(response_dict)
+        return df_res
     else:
-        df_res = extract_backtest_results(response_dict)
+        df_order_plot, df_analytics = extract_backtest_results(response_dict)
+        return df_order_plot, df_analytics
 
-    return df_res
 
 
 def plot_ts(df_ts):
@@ -61,7 +57,7 @@ def plot_ts(df_ts):
     st.plotly_chart(fig)
 
 
-def plot_backtest(df_res):
+def plot_trades(df_res):
     # plotly setup
     # https://stackoverflow.com/questions/69901909/how-to-add-datapoints-to-a-time-series-line-plot-to-highlight-events
     fig = go.Figure()
@@ -91,9 +87,54 @@ def plot_backtest(df_res):
     st.plotly_chart(fig)
 
 
+def plot_analytics(df_res):
+    # plotly setup
+    # https://plotly.com/python/multiple-axes/
+    # Create figure with secondary y-axis
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['total_pnl'],
+                             mode='lines', line=dict(color='#3366CC'), name='P&L'),
+                  secondary_y=False)
+    df_res['total_pnl_perc'] = df_res['total_pnl_perc'].mul(100).round(2)
+    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['total_pnl_perc'],
+                             mode='lines', line=dict(color='rgb(241,226,204)'), name='P&L Percentage'),
+                  secondary_y=True)
+
+    # Set x-axis title
+    fig.update_xaxes(title_text="Time")
+
+    # Set y-axes titles
+    fig.update_yaxes(title_text="<b>P&L</b>", secondary_y=False)
+    fig.update_yaxes(title_text="<b>P&L Percentage</b>", secondary_y=True)
+
+    fig.update_layout(hovermode="x unified", title=f"Trade P&L")
+    fig.update_layout(yaxis2={"tickformat": ", .0 %"})
+    st.plotly_chart(fig)
+    ########
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['drawdown'],
+                             mode='lines', line=dict(color='#3366CC'), name='Drawdown'),
+                  secondary_y=False)
+    df_res['drawdown_perc'] = df_res['drawdown_perc'].mul(100).round(2)
+    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['drawdown_perc'],
+                             mode='lines', line=dict(color='rgb(241,226,204)'), name='Drawdown Percentage'),
+                  secondary_y=True)
+
+    # Set x-axis title
+    fig.update_xaxes(title_text="Time")
+
+    # Set y-axes titles
+    fig.update_yaxes(title_text="<b>Drawdown</b>", secondary_y=False)
+    fig.update_yaxes(title_text="<b>Drawdown Percentage</b>", secondary_y=True)
+
+    fig.update_layout(hovermode="x unified", title=f"Drawdown")
+    fig.update_layout(yaxis2={"tickformat": ", .0 %"})
+    st.plotly_chart(fig)
 
 def main():
-    st.title("Algo Trading Interface v0.1")
+    st.subheader("Algo Trading Interface v0.2")
 
     # User input for stock ticker
     resp_symbols = requests.get(backend_url+'/symbols')
@@ -153,10 +194,11 @@ def main():
                 'end_date': ib_end_dt,
                 'backtest': ib_backtest
             }
-            df_res = request_data(ib_ticker, params)
-            df_res['trade_symbol'] = ib_ticker
+            df_order_plot, df_analytics = request_data(ib_ticker, params)
+            df_order_plot['trade_symbol'] = ib_ticker
             # Display the data
-            plot_backtest(df_res)
+            plot_trades(df_order_plot)
+            plot_analytics(df_analytics)
 
 
 if __name__ == "__main__":
