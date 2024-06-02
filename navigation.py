@@ -2,7 +2,7 @@ import streamlit as st
 import time
 
 algo_header = "Algo Trading Interface v0.3"
-backend_url = 'http://127.0.0.1:8000' # 'http://vm4lean.northeurope.cloudapp.azure.com:8080' # 'http://127.0.0.1:8000'
+backend_url = 'http://vm4lean.northeurope.cloudapp.azure.com:8080' # 'http://127.0.0.1:8000'
 
 
 def authenticated_menu():
