@@ -1,1 +1,1 @@
-python -m streamlit run ./stock_app_main.py --server.port 8000 --server.address 0.0.0.0
+python -m streamlit run ./stock_app_main.py --server.port 8000 --server.address 0.0.0.0 --client.showSidebarNavigation false
