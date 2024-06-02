@@ -1,22 +1,16 @@
 # pip list --format=freeze > requirements.txt
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
 import requests
 import io
-from plotly.subplots import make_subplots
+import streamlit as st
+from navigation import menu, algo_header, backend_url
 
-backend_url = 'http://vm4lean.northeurope.cloudapp.azure.com:8080' # 'http://127.0.0.1:8000'
-# streamlit run frontend_streamlit.py
-
-
-def extract_timeseries(response_dict):
-    df_stock_ts = pd.read_json(io.StringIO(response_dict))  # pd.read_json(res.json())#
-    df_stock_ts['Date'] = df_stock_ts['Date'].dt.date
-    df_stock_ts.set_index('Date', inplace=True)
-    return df_stock_ts
+st.set_page_config(page_title=algo_header, page_icon=':bar_chart:')
+st.subheader("Backtesting page")
 
 
 def extract_backtest_results(response_dict):
@@ -41,20 +35,9 @@ def request_data(symbol, params):
         return res.text
 
     response_dict = res.json()
-    if 'backtest' not in params:
-        df_res = extract_timeseries(response_dict)
-        return df_res
-    else:
+    if 'backtest' in params:
         df_order_plot, df_analytics = extract_backtest_results(response_dict)
         return df_order_plot, df_analytics
-
-
-
-def plot_ts(df_ts):
-    # Plot the closing price using Plotly
-    ticker = df_ts["ticker"].iloc[0]
-    fig = px.line(df_ts, x=df_ts.index, y='Close', title=f'{ticker} Stock Price')
-    st.plotly_chart(fig)
 
 
 def plot_trades(df_res):
@@ -84,57 +67,64 @@ def plot_trades(df_res):
     # enable the events trace to show collective information and display line on hover
     # https://stackoverflow.com/questions/73082731/plotly-adding-custom-markers-and-events-to-xaxis-points
     fig.update_layout(hovermode="x unified", title=f"{ticker} Backtest Results")
-    st.plotly_chart(fig)
+    # st.plotly_chart(fig)
+    return fig
 
 
-def plot_analytics(df_res):
+def plot_pnl(df_res):
     # plotly setup
     # https://plotly.com/python/multiple-axes/
     # Create figure with secondary y-axis
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_pnl = make_subplots(specs=[[{"secondary_y": True}]])
 
-    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['total_pnl'],
+    fig_pnl.add_trace(go.Scatter(x=df_res.index, y=df_res['total_pnl'],
                              mode='lines', line=dict(color='#3366CC'), name='P&L'),
                   secondary_y=False)
     df_res['total_pnl_perc'] = df_res['total_pnl_perc'].mul(100).round(2)
-    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['total_pnl_perc'],
+    fig_pnl.add_trace(go.Scatter(x=df_res.index, y=df_res['total_pnl_perc'],
                              mode='lines', line=dict(color='rgb(241,226,204)'), name='P&L Percentage'),
                   secondary_y=True)
 
     # Set x-axis title
-    fig.update_xaxes(title_text="Time")
+    fig_pnl.update_xaxes(title_text="Time")
 
     # Set y-axes titles
-    fig.update_yaxes(title_text="<b>P&L</b>", secondary_y=False)
-    fig.update_yaxes(title_text="<b>P&L Percentage</b>", secondary_y=True)
+    fig_pnl.update_yaxes(title_text="<b>P&L</b>", secondary_y=False)
+    fig_pnl.update_yaxes(title_text="<b>P&L Percentage</b>", secondary_y=True)
 
-    fig.update_layout(hovermode="x unified", title=f"Trade P&L")
-    fig.update_layout(yaxis2={"tickformat": ", .0 %"})
-    st.plotly_chart(fig)
-    ########
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_pnl.update_layout(hovermode="x unified", title=f"Trade P&L")
+    fig_pnl.update_layout(yaxis2={"tickformat": ", .0 %"})
+    # st.plotly_chart(fig)
+    return fig_pnl
 
-    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['drawdown'],
+
+def plot_drawdown(df_res):
+    # plotly setup
+    # https://plotly.com/python/multiple-axes/
+    fig_dd = make_subplots(specs=[[{"secondary_y": True}]])
+
+    fig_dd.add_trace(go.Scatter(x=df_res.index, y=df_res['drawdown'],
                              mode='lines', line=dict(color='#3366CC'), name='Drawdown'),
                   secondary_y=False)
     df_res['drawdown_perc'] = df_res['drawdown_perc'].mul(100).round(2)
-    fig.add_trace(go.Scatter(x=df_res.index, y=df_res['drawdown_perc'],
+    fig_dd.add_trace(go.Scatter(x=df_res.index, y=df_res['drawdown_perc'],
                              mode='lines', line=dict(color='rgb(241,226,204)'), name='Drawdown Percentage'),
                   secondary_y=True)
 
     # Set x-axis title
-    fig.update_xaxes(title_text="Time")
+    fig_dd.update_xaxes(title_text="Time")
 
     # Set y-axes titles
-    fig.update_yaxes(title_text="<b>Drawdown</b>", secondary_y=False)
-    fig.update_yaxes(title_text="<b>Drawdown Percentage</b>", secondary_y=True)
+    fig_dd.update_yaxes(title_text="<b>Drawdown</b>", secondary_y=False)
+    fig_dd.update_yaxes(title_text="<b>Drawdown Percentage</b>", secondary_y=True)
 
-    fig.update_layout(hovermode="x unified", title=f"Drawdown")
-    fig.update_layout(yaxis2={"tickformat": ", .0 %"})
-    st.plotly_chart(fig)
+    fig_dd.update_layout(hovermode="x unified", title=f"Drawdown")
+    fig_dd.update_layout(yaxis2={"tickformat": ", .0 %"})
+    # st.plotly_chart(fig)
+    return fig_dd
 
-def main():
-    st.subheader("Algo Trading Interface v0.2")
+def backtest_main():
+    # st.subheader('Backtest run results')
 
     # User input for stock ticker
     resp_symbols = requests.get(backend_url+'/symbols')
@@ -168,24 +158,9 @@ def main():
     with col4:
         ib_backtest = st.selectbox("Select Backtest", df_backtests['backtest'])
 
-    col1, col2, col3, col4 = st.columns([1, 1, 1,1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     with col1:
-        btn_ts = st.button('Get Time Series Data')
-    with col4:
         btn_bt = st.button('Perform BackTest')
-
-    # Button to fetch data
-    if btn_ts:
-        with st.spinner(f"Fetching data for {ib_ticker}..."):
-
-            # Get stock data
-            params = {
-                'start_date': ib_start_dt,
-                'end_date': ib_end_dt
-            }
-            df_ts = request_data(ib_ticker, params)
-            df_ts['ticker'] = ib_ticker
-            plot_ts(df_ts)
 
     if btn_bt:
         with st.spinner(f"Performing backtest for {ib_ticker}..."):
@@ -197,9 +172,51 @@ def main():
             df_order_plot, df_analytics = request_data(ib_ticker, params)
             df_order_plot['trade_symbol'] = ib_ticker
             # Display the data
-            plot_trades(df_order_plot)
-            plot_analytics(df_analytics)
+            tab1, tab2, tab3 = st.tabs(["Trades", "Trade PnL", "Trade Drawdown"])
+
+            with tab1:
+                fig_orders = plot_trades(df_order_plot)
+                st.plotly_chart(fig_orders)
+                st.write("**Order Table**")
+                st.dataframe(df_order_plot[df_order_plot['FillQuantity'].notnull()],
+                             use_container_width=True,
+                             column_config={
+                                 "Price": st.column_config.NumberColumn(format='%.2f')
+                                 , "bb-MiddleBand": st.column_config.NumberColumn(format='%.2f')
+                                 , "bb-UpperBand": st.column_config.NumberColumn(format='%.2f')
+                                 , "bb-LowerBand": st.column_config.NumberColumn(format='%.2f')
+                                 , "Benchmark": st.column_config.NumberColumn(format='%.2f')
+                             }
+                             )
+
+            with tab2:
+                fig_pnl = plot_pnl(df_analytics)
+                st.plotly_chart(fig_pnl)
+                st.write("**PnL Table**")
+                st.dataframe(df_analytics[['total_portfolio_value', 'total_pnl', 'total_pnl_perc']],
+                             use_container_width=True,
+                             column_config={
+                                 "total_portfolio_value": st.column_config.NumberColumn(step=0)
+                                 , "total_pnl": st.column_config.NumberColumn(step=0)
+                                 , "total_pnl_perc": st.column_config.NumberColumn(format='%.2f%%')
+                             }
+                             )
+            with tab3:
+                fig_dd = plot_drawdown(df_analytics)
+                st.plotly_chart(fig_dd)
+                st.write("**Drawdown Table**")
+                st.dataframe(df_analytics[['total_portfolio_value', 'drawdown', 'drawdown_perc']],
+                             use_container_width=True,
+                             column_config={
+                                 "total_portfolio_value": st.column_config.NumberColumn(step=0)
+                                 , "drawdown": st.column_config.NumberColumn(step=0)
+                                 , "drawdown_perc": st.column_config.NumberColumn(format='%.2f%%')
+                             }
+                             )
 
 
-if __name__ == "__main__":
-    main()
+menu()
+backtest_main()
+
+# # if __name__ == "__main__":
+# #    backtest_main()
